@@ -2,6 +2,8 @@ const API_URL = (
   import.meta.env.VITE_API_URL || "https://dkn.hostbala.com"
 ).replace(/\/$/, "");
 
+let onUnauthorized = null;
+
 const buildUrl = (path) => {
   if (path.startsWith("http")) return path;
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
@@ -57,8 +59,15 @@ export const apiRequest = async (
     const error = new Error(message);
     error.status = res.status;
     error.data = data;
+    if (res.status === 401 && typeof onUnauthorized === "function") {
+      onUnauthorized();
+    }
     throw error;
   }
 
   return data;
+};
+
+export const registerUnauthorizedHandler = (handler) => {
+  onUnauthorized = typeof handler === "function" ? handler : null;
 };

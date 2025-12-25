@@ -15,6 +15,7 @@ export default function UploadKnowledge({
   const [selectedTags, setSelectedTags] = useState([]);
   const [status, setStatus] = useState({ message: "", tone: "neutral" });
   const [submitting, setSubmitting] = useState(false);
+  const [errors, setErrors] = useState({});
 
   const toggleTag = (id) => {
     setSelectedTags((prev) =>
@@ -24,6 +25,22 @@ export default function UploadKnowledge({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const nextErrors = {};
+    if (!title.trim()) {
+      nextErrors.title = "Title is required before upload.";
+    }
+    if (!confidentiality) {
+      nextErrors.confidentiality = "Select a confidentiality level.";
+    }
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors);
+      setStatus({
+        message: "Please fix the highlighted fields before submitting.",
+        tone: "error",
+      });
+      return;
+    }
+    setErrors({});
     setSubmitting(true);
     setStatus({ message: "", tone: "neutral" });
     try {
@@ -68,10 +85,16 @@ export default function UploadKnowledge({
           <input
             className="input"
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => {
+              setTitle(e.target.value);
+              if (errors.title) {
+                setErrors((prev) => ({ ...prev, title: "" }));
+              }
+            }}
             placeholder="What should we call this document?"
             required
           />
+          {errors.title && <p className="field-error">{errors.title}</p>}
         </label>
         <label className="field">
           <span>Description</span>
@@ -88,12 +111,20 @@ export default function UploadKnowledge({
           <select
             className="input"
             value={confidentiality}
-            onChange={(e) => setConfidentiality(e.target.value)}
+            onChange={(e) => {
+              setConfidentiality(e.target.value);
+              if (errors.confidentiality) {
+                setErrors((prev) => ({ ...prev, confidentiality: "" }));
+              }
+            }}
           >
             <option value="PUBLIC">Public</option>
             <option value="INTERNAL">Internal</option>
             <option value="RESTRICTED">Restricted</option>
           </select>
+          {errors.confidentiality && (
+            <p className="field-error">{errors.confidentiality}</p>
+          )}
         </label>
         <label className="field">
           <span>Project (optional)</span>

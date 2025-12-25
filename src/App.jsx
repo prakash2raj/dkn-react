@@ -1,11 +1,27 @@
-import { useEffect, useState } from "react";
-import { apiRequest } from "./api";
+import { useCallback, useEffect, useState } from "react";
+import {
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
+import { apiRequest, registerUnauthorizedHandler } from "./api";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
+import DocumentRoute from "./pages/DocumentRoute";
 
 function App() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [user, setUser] = useState(null);
   const [hydrated, setHydrated] = useState(false);
+
+  const handleLogout = useCallback(() => {
+    localStorage.clear();
+    setUser(null);
+    navigate("/login", { replace: true });
+  }, [navigate]);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -32,18 +48,74 @@ function App() {
       .finally(() => setHydrated(true));
   }, []);
 
-  const handleLogout = () => {
-    localStorage.clear();
-    setUser(null);
-  };
+  useEffect(() => {
+    registerUnauthorizedHandler(() => {
+      handleLogout();
+    });
 
-  if (!hydrated && !user) {
-    return <div style={{ padding: "2rem" }}>Loading workspace...</div>;
-  }
+    return () => registerUnauthorizedHandler(null);
+  }, [handleLogout]);
 
-  if (!user) return <Login onLogin={setUser} />;
+  const requireAuth = useCallback(
+    (children) => {
+      if (!hydrated) {
+        return <div style={{ padding: "2rem" }}>Loading workspace...</div>;
+      }
+      if (!user) {
+        return (
+          <Navigate
+            to="/login"
+            replace
+            state={{ from: location.pathname + location.search }}
+          />
+        );
+      }
+      return children;
+    },
+    [hydrated, location.pathname, location.search, user]
+  );
 
-  return <Dashboard user={user} onLogout={handleLogout} />;
+  const defaultDashboard = "/dashboard";
+
+  return (
+    <Routes>
+      <Route
+        path="/login"
+        element={
+          user ? (
+            <Navigate to={defaultDashboard} replace />
+          ) : (
+            <Login
+              onLogin={(loggedInUser) => {
+                setUser(loggedInUser);
+                navigate(defaultDashboard, { replace: true });
+              }}
+            />
+          )
+        }
+      />
+      <Route
+        path="/dashboard/:view?"
+        element={requireAuth(<Dashboard user={user} onLogout={handleLogout} />)}
+      />
+      <Route
+        path="/documents/:id"
+        element={requireAuth(<DocumentRoute user={user} />)}
+      />
+      <Route
+        path="/"
+        element={
+          <Navigate to={user ? defaultDashboard : "/login"} replace />
+        }
+      />
+      <Route
+        path="*"
+        element={
+          <Navigate to={user ? defaultDashboard : "/login"} replace />
+        }
+      />
+    </Routes>
+  );
 }
 
 export default App;

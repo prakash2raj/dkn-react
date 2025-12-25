@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { apiRequest } from "../api";
 import UploadKnowledge from "./UploadKnowledge";
 import Recommendations from "./Recommendations";
@@ -6,7 +7,6 @@ import { getUser, hasRole } from "../utils/auth";
 import ChampionValidation from "./ChampionValidation";
 import GovernanceAudit from "./GovernanceAudit";
 import AdminUserDirectory from "./AdminUserDirectory";
-import DocumentDetails from "./DocumentDetails";
 import "./Dashboard.css";
 
 const formatStatus = (status) => {
@@ -19,6 +19,9 @@ const formatStatus = (status) => {
 };
 
 export default function Dashboard({ user: userProp, onLogout }) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { view } = useParams();
   const user = useMemo(() => userProp || getUser(), [userProp]);
   const [docs, setDocs] = useState([]);
   const [myDocs, setMyDocs] = useState([]);
@@ -35,8 +38,7 @@ export default function Dashboard({ user: userProp, onLogout }) {
     experience_level: "",
   });
   const [projectsFilterActive, setProjectsFilterActive] = useState(true);
-  const [selectedDocId, setSelectedDocId] = useState(null);
-  const [activeView, setActiveView] = useState("knowledge");
+  const [activeView, setActiveView] = useState(view || "dashboard");
   const [loading, setLoading] = useState({
     docs: true,
     myDocs: true,
@@ -188,39 +190,137 @@ export default function Dashboard({ user: userProp, onLogout }) {
 
   const isAdmin = hasRole(["ADMIN"], user);
 
-  const navItems = useMemo(
+  const navSections = useMemo(() => {
+    const sections = [
+      {
+        id: "overview",
+        label: "Overview",
+        icon: "📁",
+        items: [{ key: "dashboard", label: "Dashboard", icon: "📊", visible: true }],
+      },
+      {
+        id: "knowledge",
+        label: "Knowledge space",
+        icon: "📁",
+        items: [
+          { key: "knowledge", label: "Knowledge base", icon: "📁", visible: true },
+          { key: "myDocs", label: "My documents", icon: "📁", visible: true },
+          { key: "upload", label: "Upload bin", icon: "📤", visible: canUpload },
+        ],
+      },
+      {
+        id: "delivery",
+        label: "Delivery & projects",
+        icon: "📂",
+        items: [
+          { key: "projects", label: "Projects", icon: "📁", visible: true },
+          { key: "metadata", label: "Workspaces & tags", icon: "🏷️", visible: true },
+          {
+            key: "constraints",
+            label: "Offices & constraints",
+            icon: "🛰️",
+            visible: true,
+          },
+        ],
+      },
+      {
+        id: "trust",
+        label: "Trust & governance",
+        icon: "🗂️",
+        items: [
+          {
+            key: "validation",
+            label: "Validation queue",
+            icon: "✅",
+            visible: hasRole(["CHAMPION", "GOVERNANCE"], user),
+          },
+          {
+            key: "audit",
+            label: "Audit logs",
+            icon: "📜",
+            visible: hasRole(["GOVERNANCE"], user),
+          },
+        ],
+      },
+      {
+        id: "people",
+        label: "People & signals",
+        icon: "📁",
+        items: [
+          { key: "expertise", label: "Expertise profile", icon: "🧠", visible: true },
+          { key: "recommendations", label: "Recommendations", icon: "✨", visible: true },
+          { key: "gamification", label: "Gamification", icon: "🏅", visible: true },
+          { key: "admin", label: "Admin users", icon: "🛠️", visible: isAdmin },
+        ],
+      },
+    ];
+
+    return sections
+      .map((section) => ({
+        ...section,
+        items: section.items.filter((item) => item.visible !== false),
+      }))
+      .filter((section) => section.items.length > 0);
+  }, [canUpload, isAdmin, user]);
+
+  const flatNav = useMemo(
     () =>
-      [
-        { key: "upload", label: "Upload", visible: canUpload },
-        { key: "knowledge", label: "Knowledge base", visible: true },
-        { key: "myDocs", label: "My documents", visible: true },
-        { key: "projects", label: "Projects", visible: true },
-        { key: "metadata", label: "Workspaces & tags", visible: true },
-        { key: "constraints", label: "Offices & constraints", visible: true },
-        {
-          key: "validation",
-          label: "Validation queue",
-          visible: hasRole(["CHAMPION", "GOVERNANCE"], user),
-        },
-        {
-          key: "audit",
-          label: "Audit logs",
-          visible: hasRole(["GOVERNANCE"], user),
-        },
-        { key: "expertise", label: "Expertise profile", visible: true },
-        { key: "gamification", label: "Gamification", visible: true },
-        { key: "admin", label: "Admin users", visible: isAdmin },
-        { key: "recommendations", label: "Recommendations", visible: true },
-      ].filter((item) => item.visible),
-    [canUpload, isAdmin, user]
+      navSections.flatMap((section) =>
+        section.items.map((item) => ({
+          ...item,
+          section: section.label,
+        }))
+      ),
+    [navSections]
   );
 
   useEffect(() => {
-    const first = navItems[0]?.key;
-    if (first && !navItems.find((n) => n.key === activeView)) {
+    const first = flatNav[0]?.key;
+    if (first && !flatNav.find((n) => n.key === activeView)) {
       setActiveView(first);
     }
-  }, [navItems, activeView]);
+  }, [flatNav, activeView]);
+
+  const activeMeta = useMemo(
+    () => flatNav.find((n) => n.key === activeView),
+    [flatNav, activeView]
+  );
+
+  const counts = useMemo(
+    () => ({
+      knowledge: docs.length,
+      myDocs: myDocs.length,
+      projects: projects.length,
+    }),
+    [docs.length, myDocs.length, projects.length]
+  );
+
+  useEffect(() => {
+    setActiveView((prev) => {
+      if (!view) return "dashboard";
+      if (view !== prev) return view;
+      return prev;
+    });
+  }, [view]);
+
+  useEffect(() => {
+    const exists = flatNav.find((n) => n.key === activeView);
+    if (!exists && flatNav[0]) {
+      setActiveView("dashboard");
+      navigate("/dashboard", { replace: true });
+    }
+  }, [activeView, flatNav, navigate]);
+
+  const handleNav = (key) => {
+    setActiveView(key);
+    navigate(key === "dashboard" ? "/dashboard" : `/dashboard/${key}`);
+  };
+
+  useEffect(() => {
+    if (!view && activeView !== "dashboard") {
+      navigate(`/dashboard/${activeView}`, { replace: true });
+    }
+  }, [activeView, navigate, view]);
 
   const handleDocumentCreated = () => {
     loadDocs();
@@ -278,6 +378,50 @@ export default function Dashboard({ user: userProp, onLogout }) {
 
   const renderView = () => {
     switch (activeView) {
+      case "dashboard":
+        return (
+          <section className="panel panel-wide">
+            <div className="panel-header">
+              <div>
+                <p className="eyebrow">Dashboard</p>
+                <h3>Jump into a space</h3>
+              </div>
+              <span className="pill subtle">Folders</span>
+            </div>
+            <div className="panel-body folder-grid">
+              {navSections.map((section) => (
+                <div key={section.id} className="folder-column">
+                  <div className="folder-heading">
+                    <span className="folder-heading-icon" aria-hidden="true">
+                      {section.icon}
+                    </span>
+                    <span>{section.label}</span>
+                  </div>
+                  <div className="folder-cards">
+                    {section.items.map((item) => (
+                      <button
+                        key={item.key}
+                        className="folder-card"
+                        type="button"
+                        onClick={() => handleNav(item.key)}
+                      >
+                        <div className="folder-card-icon" aria-hidden="true">
+                          {item.icon || "📁"}
+                        </div>
+                        <p className="folder-card-label">{item.label}</p>
+                        <p className="folder-card-sub">
+                          {counts[item.key] !== undefined
+                            ? `${counts[item.key]} items`
+                            : "Open"}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        );
       case "upload":
         return (
           <section className="panel panel-wide">
@@ -344,7 +488,11 @@ export default function Dashboard({ user: userProp, onLogout }) {
                         <button
                           className="action-button"
                           type="button"
-                          onClick={() => setSelectedDocId(d.id)}
+                          onClick={() =>
+                            navigate(`/documents/${d.id}`, {
+                              state: { from: `${location.pathname}${location.search}` },
+                            })
+                          }
                         >
                           View
                         </button>
@@ -403,7 +551,11 @@ export default function Dashboard({ user: userProp, onLogout }) {
                         <button
                           className="action-button"
                           type="button"
-                          onClick={() => setSelectedDocId(d.id)}
+                          onClick={() =>
+                            navigate(`/documents/${d.id}`, {
+                              state: { from: `${location.pathname}${location.search}` },
+                            })
+                          }
                         >
                           View
                         </button>
@@ -786,57 +938,100 @@ export default function Dashboard({ user: userProp, onLogout }) {
   if (!user) return null;
 
   return (
-    <div className="dashboard">
-      <header className="dashboard-hero">
-        <div>
-          <p className="eyebrow">Dashboard</p>
-          <h1>Welcome back, {user.name}</h1>
-          <p className="muted">
-            Role-aware workspace to upload context, validate knowledge, and
-            monitor recommendations tailored to your permissions.
-          </p>
-        </div>
-        <div className="hero-actions">
-          <div
-            className="user-chip"
-            aria-label={`Signed in as ${user.name} (${user.role || "User"})`}
-          >
-            <span className="avatar">{initials}</span>
-            <div className="user-meta">
-              <span className="user-name">{user.name}</span>
-              <span className="user-role">
-                {user.role?.role_name || user.role || "User"}
-              </span>
+    <div className="dashboard-shell">
+      <aside className="sidebar" aria-label="Directory navigation">
+        <div className="sidebar-brand">
+          <div className="brand-mark">
+            <span className="brand-dot" />
+            <div>
+              <p className="eyebrow">Knowledge drive</p>
+              <h2 className="brand-title">Workspace explorer</h2>
             </div>
           </div>
-          <button className="ghost-button" onClick={onLogout}>
+          <p className="muted">
+            Browse evidence, delivery tracks, and role-specific tools from a single pane.
+          </p>
+        </div>
+
+        <div className="sidebar-user">
+          <span className="avatar ringed" aria-hidden="true">
+            {initials}
+          </span>
+          <div className="user-meta">
+            <p className="user-name">{user.name}</p>
+            <p className="user-role">{user.role?.role_name || user.role || "User"}</p>
+          </div>
+        </div>
+
+        <div className="directory">
+          {navSections.map((section) => (
+            <div key={section.id} className="directory-section">
+              <div className="directory-heading">
+                <span className="folder-icon" aria-hidden="true">
+                  {section.icon}
+                </span>
+                <span>{section.label}</span>
+              </div>
+              <div className="directory-items">
+                {section.items.map((item) => (
+                  <button
+                    key={item.key}
+                    className={`directory-link ${activeView === item.key ? "active" : ""}`}
+                    type="button"
+                    onClick={() => handleNav(item.key)}
+                  >
+                    <div className="link-main">
+                      <span className="link-icon" aria-hidden="true">
+                        {activeView === item.key ? "📂" : item.icon || "📁"}
+                      </span>
+                      <span className="link-label">{item.label}</span>
+                    </div>
+                    {counts[item.key] ? (
+                      <span className="directory-count">{counts[item.key]}</span>
+                    ) : null}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="sidebar-logout">
+          <button className="ghost-button" type="button" onClick={onLogout}>
             Logout
           </button>
         </div>
-      </header>
+      </aside>
 
-      <nav className="dashboard-nav" aria-label="Primary">
-        {navItems.map((item) => (
-          <button
-            key={item.key}
-            className={`nav-button ${activeView === item.key ? "active" : ""}`}
-            type="button"
-            onClick={() => setActiveView(item.key)}
-          >
-            {item.label}
-          </button>
-        ))}
-      </nav>
+      <div className="dashboard-main">
+        <header className="page-header">
+          <div>
+            <p className="eyebrow">
+              {activeView === "dashboard" ? "Dashboard" : activeMeta?.section || "Explorer"}
+            </p>
+            <h1>
+              {activeView === "dashboard" ? "Folder overview" : activeMeta?.label || "Workspace"}
+            </h1>
+            <p className="muted">
+              Navigate folders on the left to open knowledge, projects, and tools aligned to
+              your role.
+            </p>
+          </div>
+          <div className="breadcrumb" aria-label="Navigation path">
+            <span>Explorer</span>
+            <span className="crumb-divider">/</span>
+            <span>
+              {activeView === "dashboard" ? "Dashboard" : activeMeta?.section || "Workspace"}
+            </span>
+            <span className="crumb-divider">/</span>
+            <span className="crumb-current">
+              {activeView === "dashboard" ? "Overview" : activeMeta?.label || "Overview"}
+            </span>
+          </div>
+        </header>
 
-      <div className="dashboard-grid">{renderView()}</div>
-
-      {selectedDocId && (
-        <DocumentDetails
-          documentId={selectedDocId}
-          onClose={() => setSelectedDocId(null)}
-          user={user}
-        />
-      )}
+        <div className="dashboard-grid">{renderView()}</div>
+      </div>
     </div>
   );
 }
