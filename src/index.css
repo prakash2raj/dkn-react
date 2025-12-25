@@ -1,0 +1,43 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;600&display=swap");
+
+:root {
+  font-family: "Manrope", "Helvetica Neue", sans-serif;
+  line-height: 1.6;
+  font-weight: 400;
+  color: #e2e8f0;
+  background-color: #0b1221;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  --page-gradient: radial-gradient(circle at 20% 20%, #15304d 0, rgba(11, 18, 33, 0.2) 35%), radial-gradient(circle at 80% 0%, #0b9fb7 0, rgba(11, 18, 33, 0.15) 25%), #0b1221;
+  --card-bg: rgba(17, 24, 39, 0.72);
+  --muted: #9fb2c7;
+  --ink: #e8edf5;
+  --accent: #16c5c7;
+  --accent-strong: #0ea5b0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--page-gradient);
+  color: var(--ink);
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+a:hover {
+  color: var(--accent-strong);
+}
+
+button {
+  font-family: inherit;
+}
