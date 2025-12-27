@@ -205,7 +205,7 @@ export default function Dashboard({ user: userProp, onLogout }) {
         items: [
           { key: "knowledge", label: "Knowledge base", icon: "📁", visible: true },
           { key: "myDocs", label: "My documents", icon: "📁", visible: true },
-          { key: "upload", label: "Upload bin", icon: "📤", visible: canUpload },
+          { key: "upload", label: "Upload", icon: "📤", visible: canUpload },
         ],
       },
       {
@@ -263,6 +263,17 @@ export default function Dashboard({ user: userProp, onLogout }) {
       .filter((section) => section.items.length > 0);
   }, [canUpload, isAdmin, user]);
 
+  const gridSections = useMemo(
+    () =>
+      navSections
+        .map((section) => ({
+          ...section,
+          items: section.items.filter((item) => item.key !== "dashboard"),
+        }))
+        .filter((section) => section.items.length > 0),
+    [navSections]
+  );
+
   const flatNav = useMemo(
     () =>
       navSections.flatMap((section) =>
@@ -276,6 +287,7 @@ export default function Dashboard({ user: userProp, onLogout }) {
 
   useEffect(() => {
     const first = flatNav[0]?.key;
+    if (activeView === "dashboard") return;
     if (first && !flatNav.find((n) => n.key === activeView)) {
       setActiveView(first);
     }
@@ -389,7 +401,7 @@ export default function Dashboard({ user: userProp, onLogout }) {
               <span className="pill subtle">Folders</span>
             </div>
             <div className="panel-body folder-grid">
-              {navSections.map((section) => (
+              {gridSections.map((section) => (
                 <div key={section.id} className="folder-column">
                   <div className="folder-heading">
                     <span className="folder-heading-icon" aria-hidden="true">
