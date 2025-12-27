@@ -344,6 +344,13 @@ export default function Dashboard({ user: userProp, onLogout }) {
     loadMyDocs();
   };
 
+  const handleOpenDocument = (id) => {
+    if (!id) return;
+    navigate(`/documents/${id}`, {
+      state: { from: `${location.pathname}${location.search}` },
+    });
+  };
+
   const handleCreateTag = async (e) => {
     e.preventDefault();
     if (!newTag.trim()) return;
@@ -779,7 +786,7 @@ export default function Dashboard({ user: userProp, onLogout }) {
             </div>
             <ChampionValidation
               onValidated={handleValidated}
-              onSelectDocument={setSelectedDocId}
+              onSelectDocument={handleOpenDocument}
             />
           </section>
         );
