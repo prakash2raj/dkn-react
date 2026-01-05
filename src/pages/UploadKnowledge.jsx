@@ -66,8 +66,19 @@ export default function UploadKnowledge({
         onCreated();
       }
     } catch (err) {
+      if (err?.status === 422 && err?.data?.errors) {
+        setErrors((prev) => ({ ...prev, ...err.data.errors }));
+      }
+      const firstFieldError = err?.data?.errors
+        ? Object.values(err.data.errors)[0]
+        : null;
       const message =
-        err?.data?.message || "Error uploading document. Please try again.";
+        err?.data?.message ||
+        (Array.isArray(firstFieldError) ? firstFieldError.join(" ") : firstFieldError) ||
+        (err?.status === 403
+          ? "You do not have permission to upload this document."
+          : null) ||
+        "Error uploading document. Please try again.";
       setStatus({ message, tone: "error" });
     } finally {
       setSubmitting(false);
